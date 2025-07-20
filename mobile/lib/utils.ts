@@ -9,3 +9,39 @@ export function formatDate(dateString:string) {
     day: "numeric",
   });
 }
+
+export function parseTransactionSMS(body: string) {
+  // Patterns for amount
+  const amountPatterns = [
+    /(INR|Rs\.?|₹)\s?([\d,]+\.?\d*)/i,
+    /amount of (INR|Rs\.?|₹)\s?([\d,]+\.?\d*)/i,
+  ];
+
+  // Patterns for type
+  const incomeKeywords = /(credited|received|deposited|added)/i;
+  const expenseKeywords = /(debited|sent|paid|payment|purchase|withdrawn|transferred|spent)/i;
+
+  // Try to extract amount
+  let amount: number | null = null;
+  for (const pattern of amountPatterns) {
+    const match = body.match(pattern);
+    if (match) {
+      amount = parseFloat(match[2].replace(/,/g, ''));
+      break;
+    }
+  }
+  if (!amount) return null;
+
+  // Determine type
+  let type: 'income' | 'expense' = 'expense';
+  if (incomeKeywords.test(body)) type = 'income';
+  else if (expenseKeywords.test(body)) type = 'expense';
+
+  // Extract a short description (e.g., UPI ID, merchant, etc.)
+  let description = body;
+  // Try to extract UPI ID or merchant
+  const upiMatch = body.match(/to ([\w\.\-@]+)/i) || body.match(/by ([\w\.\-@]+)/i);
+  if (upiMatch) description = upiMatch[1];
+
+  return { amount, type, description: description.slice(0, 100) };
+}

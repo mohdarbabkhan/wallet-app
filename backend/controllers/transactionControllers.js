@@ -71,3 +71,36 @@ export async function GetTransactionSummary(req,res) {
         res.status(500).json({message:"Internal server error"})
     }
 }
+
+export async function CreateTransactionFromSMS(req, res) {
+    try {
+        const { user_id, amount, description, date, type } = req.body;
+        if (!user_id || amount === undefined || !description || !date || !type) {
+            return res.status(400).json({ message: "All fields are required (user_id, amount, description, date, type)" });
+        }
+
+        // Prevent duplicate: check if a transaction with same user_id, amount, date, and description exists
+        const duplicate = await sql`
+            SELECT * FROM transactions WHERE user_id = ${user_id} AND amount = ${amount} AND description = ${description} AND created_at::date = ${date}
+        `;
+        if (duplicate.length > 0) {
+            return res.status(409).json({ message: "Duplicate transaction detected" });
+        }
+
+        // Determine category based on type
+        // type: 'income' or 'expense'
+        const category = type === 'income' ? 'income' : 'expense';
+        // For expenses, store amount as negative
+        const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+
+        const transaction = await sql`
+            INSERT INTO transactions(user_id, title, amount, category, description, created_at)
+            VALUES(${user_id}, ${description}, ${finalAmount}, ${category}, ${description}, ${date})
+            RETURNING *
+        `;
+        res.status(201).json(transaction[0]);
+    } catch (error) {
+        console.log("Error creating transaction from SMS", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}

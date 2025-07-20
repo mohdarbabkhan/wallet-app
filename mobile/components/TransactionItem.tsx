@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native'
-import { styles } from '@/assests/styles/home.styles'
+import { styles } from '@/assets/styles/home.styles'
 import { Ionicons } from '@expo/vector-icons'
 import { COLORS } from '@/constants/colors';
 import { formatDate } from '@/lib/utils';

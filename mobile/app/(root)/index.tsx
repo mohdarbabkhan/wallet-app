@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-expo'
 import { Link, router, useRouter } from 'expo-router'
-import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View, PermissionsAndroid, Platform } from 'react-native'
 import { SignOutButton } from '@/components/SignOutButton'
 import { useTransaction } from '@/Hooks/useTransaction'
 import { useEffect,useState } from 'react'
@@ -10,11 +10,17 @@ import { Ionicons } from '@expo/vector-icons'
 import BalanceCard from "../../components/BalanceCard"
 import {TransactionItem} from '@/components/TransactionItem'
 import NoTransactionsFound from '@/components/NoTransactionsFound'
+// @ts-ignore: No types for 'react-native-get-sms-android'
+import SmsAndroid from 'react-native-get-sms-android';
+import axios from 'axios';
+import { API_URL } from '@/constants/api';
+import { parseTransactionSMS } from '@/lib/utils';
 
 export default function Page() {
   const { user } = useUser()
   const router = useRouter();
   const [refreshing,setRefreshing] = useState(false)
+  const [syncing, setSyncing] = useState(false);
  
   if (!user?.id){
     return <Text>Loading user...</Text>
@@ -29,6 +35,31 @@ export default function Page() {
     loadData();
   },[loadData]);
 
+  useEffect(() => {
+    async function requestSMSPermission() {
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.READ_SMS,
+            {
+              title: 'SMS Permission',
+              message: 'This app needs access to your SMS to track transactions.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            Alert.alert('Permission Denied', 'SMS read permission is required to track transactions from SMS.');
+          }
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+    }
+    requestSMSPermission();
+  }, []);
+
   if(loading && !refreshing) return <PageLoader/>
 
   const handleDelete = (id:string) => {
@@ -36,6 +67,70 @@ export default function Page() {
       {text:"Cancel",style:"cancel"},
       {text:"Delete", style:"destructive", onPress: () => deleteTransaction(id)},
     ]);
+  };
+  
+  const handleSyncSMS = async () => {
+    if (Platform.OS !== 'android') {
+      Alert.alert('Not supported', 'SMS sync is only supported on Android devices.');
+      return;
+    }
+    setSyncing(true);
+    try {
+      SmsAndroid.list(
+        JSON.stringify({
+          box: 'inbox',
+          maxCount: 100,
+        }),
+        (fail: any) => {
+          setSyncing(false);
+          console.log('Failed with this error: ' + fail);
+          Alert.alert('Error', 'Failed to read SMS inbox.');
+        },
+        async (count: any, smsList: any) => {
+          const messages = JSON.parse(smsList);
+          const parsedTransactions = messages
+            .map((msg: any) => {
+              const parsed = parseTransactionSMS(msg.body);
+              if (parsed) {
+                return {
+                  user_id: user.id,
+                  ...parsed,
+                  date: new Date(msg.date).toISOString(),
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+          if (parsedTransactions.length === 0) {
+            setSyncing(false);
+            Alert.alert('SMS Sync', 'No transactions found in your SMS inbox.');
+            return;
+          }
+          let successCount = 0;
+          let duplicateCount = 0;
+          let errorCount = 0;
+          for (const txn of parsedTransactions) {
+            try {
+              await axios.post(`${API_URL}/transactions/sms`, txn);
+              successCount++;
+            } catch (err: any) {
+              if (err.response && err.response.status === 409) {
+                duplicateCount++;
+              } else {
+                errorCount++;
+              }
+            }
+          }
+          setSyncing(false);
+          Alert.alert('SMS Sync', `Added: ${successCount}, Duplicates: ${duplicateCount}, Errors: ${errorCount}`);
+          loadData();
+        }
+      );
+    } catch (error) {
+      setSyncing(false);
+      console.error(error);
+      Alert.alert('Error', 'An error occurred while syncing SMS transactions.');
+    }
   };
   
   return (
@@ -69,6 +164,11 @@ export default function Page() {
 
         {/* BALANCE CARD */}
         <BalanceCard summary={summary}/>
+        {/* SMS SYNC BUTTON */}
+        <TouchableOpacity style={[styles.addButton, {marginVertical: 10, opacity: syncing ? 0.6 : 1}]} onPress={handleSyncSMS} disabled={syncing}>
+          <Ionicons name="sync" size={20} color="#FFF"/>
+          <Text style={styles.addButtonText}>{syncing ? 'Syncing...' : 'Sync SMS Transactions'}</Text>
+        </TouchableOpacity>
 
         <View style={styles.transactionsHeaderContainer}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
