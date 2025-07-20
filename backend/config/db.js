@@ -13,9 +13,7 @@ export async function initDB(){
         title VARCHAR(255) NOT NULL,
         amount DECIMAL(10,2) NOT NULL,
         category VARCHAR(255) NOT NULL,
-        description VARCHAR(255),
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT unique_transaction UNIQUE (user_id, amount, description, created_at)
+        created_at DATE NOT NULL DEFAULT CURRENT_DATE
         )`
 
         console.log("Database created succesfully");

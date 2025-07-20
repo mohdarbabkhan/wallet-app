@@ -74,28 +74,24 @@ export async function GetTransactionSummary(req,res) {
 
 export async function CreateTransactionFromSMS(req, res) {
     try {
-        const { user_id, amount, description, date, type } = req.body;
-        if (!user_id || amount === undefined || !description || !date || !type) {
-            return res.status(400).json({ message: "All fields are required (user_id, amount, description, date, type)" });
+        const { user_id, amount, date, type } = req.body;
+        if (!user_id || amount === undefined || !date || !type) {
+            return res.status(400).json({ message: "All fields are required (user_id, amount, date, type)" });
         }
 
-        // Prevent duplicate: check if a transaction with same user_id, amount, date, and description exists
+        // Prevent duplicate: check if a transaction with same user_id, amount, date, and category exists
+        const category = type === 'income' ? 'income' : 'expense';
+        const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
         const duplicate = await sql`
-            SELECT * FROM transactions WHERE user_id = ${user_id} AND amount = ${amount} AND description = ${description} AND created_at::date = ${date}
+            SELECT * FROM transactions WHERE user_id = ${user_id} AND amount = ${finalAmount} AND category = ${category} AND created_at = ${date}
         `;
         if (duplicate.length > 0) {
             return res.status(409).json({ message: "Duplicate transaction detected" });
         }
 
-        // Determine category based on type
-        // type: 'income' or 'expense'
-        const category = type === 'income' ? 'income' : 'expense';
-        // For expenses, store amount as negative
-        const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-
         const transaction = await sql`
-            INSERT INTO transactions(user_id, title, amount, category, description, created_at)
-            VALUES(${user_id}, ${description}, ${finalAmount}, ${category}, ${description}, ${date})
+            INSERT INTO transactions(user_id, title, amount, category, created_at)
+            VALUES(${user_id}, ${category}, ${finalAmount}, ${category}, ${date})
             RETURNING *
         `;
         res.status(201).json(transaction[0]);
