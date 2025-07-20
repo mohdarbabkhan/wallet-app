@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native'
 import React from 'react'
 import { useRouter } from 'expo-router'
-import { styles } from '@/assests/styles/home.styles'
+import { styles } from '@/assets/styles/home.styles'
 import { Ionicons } from '@expo/vector-icons'
 import { COLORS } from '@/constants/colors'
 import CreateScreen from '@/app/(root)/CreateScreen'

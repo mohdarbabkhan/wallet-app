@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native'
-import { styles } from '@/assests/styles/home.styles'
+import { styles } from '@/assets/styles/home.styles'
 import React from 'react'
 import { COLORS } from '@/constants/colors'
 

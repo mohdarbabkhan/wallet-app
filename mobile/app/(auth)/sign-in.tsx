@@ -3,7 +3,7 @@ import { Link, useRouter } from 'expo-router'
 import { Text, TextInput, TouchableOpacity, View, Image} from 'react-native'
 import React from 'react'
 import { useState } from 'react'
-import { styles } from '@/assests/styles/auth.styles'
+import { styles } from '@/assets/styles/auth.styles'
 import {KeyboardAwareScrollView} from "react-native-keyboard-aware-scroll-view"
 import { Ionicons } from '@expo/vector-icons'
 import {COLORS} from "../../constants/colors"
@@ -56,7 +56,7 @@ export default function Page() {
       enableAutomaticScroll={true}
     >
       <View style={styles.container}>
-        <Image source={require("../../assests/images/revenue-i4.png")} style={styles.illustration}/>
+        <Image source={require("../../assets/images/revenue-i4.png")} style={styles.illustration}/>
       <Text style={styles.title}>Welcome Back</Text>
 
         {error ? (

@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { API_URL } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
-import { styles } from '@/assests/styles/create.styles';
+import { styles } from '@/assets/styles/create.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/constants/colors';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
