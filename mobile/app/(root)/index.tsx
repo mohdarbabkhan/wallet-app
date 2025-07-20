@@ -36,28 +36,31 @@ export default function Page() {
   },[loadData]);
 
   useEffect(() => {
-    async function requestSMSPermission() {
-      if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.READ_SMS,
-            {
-              title: 'SMS Permission',
-              message: 'This app needs access to your SMS to track transactions.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert('Permission Denied', 'SMS read permission is required to track transactions from SMS.');
+    const timer = setTimeout(() => {
+      async function requestSMSPermission() {
+        if (Platform.OS === 'android') {
+          try {
+            const granted = await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.READ_SMS,
+              {
+                title: 'SMS Permission',
+                message: 'This app needs access to your SMS to track transactions.',
+                buttonNeutral: 'Ask Me Later',
+                buttonNegative: 'Cancel',
+                buttonPositive: 'OK',
+              },
+            );
+            if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+              Alert.alert('Permission Denied', 'SMS read permission is required to track transactions from SMS. Please enable it in Settings > Apps > [Your App] > Permissions.');
+            }
+          } catch (err) {
+            console.warn(err);
           }
-        } catch (err) {
-          console.warn(err);
         }
       }
-    }
-    requestSMSPermission();
+      requestSMSPermission();
+    }, 2000); // Wait 2 seconds after mount
+    return () => clearTimeout(timer);
   }, []);
 
   if(loading && !refreshing) return <PageLoader/>
@@ -70,8 +73,8 @@ export default function Page() {
   };
   
   const handleSyncSMS = async () => {
-    if (Platform.OS !== 'android') {
-      Alert.alert('Not supported', 'SMS sync is only supported on Android devices.');
+    if (Platform.OS !== 'android' || !SmsAndroid) {
+      Alert.alert('Not supported', 'SMS sync is only supported on Android devices with a custom build.');
       return;
     }
     setSyncing(true);
@@ -94,8 +97,9 @@ export default function Page() {
               if (parsed) {
                 return {
                   user_id: user.id,
-                  ...parsed,
-                  date: new Date(msg.date).toISOString(),
+                  amount: parsed.amount,
+                  type: parsed.type,
+                  date: new Date(msg.date).toISOString().slice(0, 10), // Only YYYY-MM-DD
                 };
               }
               return null;

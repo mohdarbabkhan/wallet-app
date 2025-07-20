@@ -37,11 +37,5 @@ export function parseTransactionSMS(body: string) {
   if (incomeKeywords.test(body)) type = 'income';
   else if (expenseKeywords.test(body)) type = 'expense';
 
-  // Extract a short description (e.g., UPI ID, merchant, etc.)
-  let description = body;
-  // Try to extract UPI ID or merchant
-  const upiMatch = body.match(/to ([\w\.\-@]+)/i) || body.match(/by ([\w\.\-@]+)/i);
-  if (upiMatch) description = upiMatch[1];
-
-  return { amount, type, description: description.slice(0, 100) };
+  return { amount, type };
 }
