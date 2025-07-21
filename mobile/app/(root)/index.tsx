@@ -14,7 +14,8 @@ import NoTransactionsFound from '@/components/NoTransactionsFound'
 import SmsAndroid from 'react-native-get-sms-android';
 import axios from 'axios';
 import { API_URL } from '@/constants/api';
-import { parseTransactionSMS } from '@/lib/utils';
+import { formatDate, parseTransactionSMS } from '@/lib/utils';
+import { useRequestPermission } from '@/Hooks/useRequestPermission'
 
 export default function Page() {
   const { user } = useUser()
@@ -26,42 +27,19 @@ export default function Page() {
     return <Text>Loading user...</Text>
   }
   const {transaction,summary,loading,loadData,deleteTransaction} = useTransaction(user.id);
+  const {requestSMSPermission} = useRequestPermission(user.id);
   const onRefresh = async() =>{
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
   } 
-  useEffect(() => {
-    loadData();
-  },[loadData]);
 
+  //request SMS permission and load data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      async function requestSMSPermission() {
-        if (Platform.OS === 'android') {
-          try {
-            const granted = await PermissionsAndroid.request(
-              PermissionsAndroid.PERMISSIONS.READ_SMS,
-              {
-                title: 'SMS Permission',
-                message: 'This app needs access to your SMS to track transactions.',
-                buttonNeutral: 'Ask Me Later',
-                buttonNegative: 'Cancel',
-                buttonPositive: 'OK',
-              },
-            );
-            if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-              Alert.alert('Permission Denied', 'SMS read permission is required to track transactions from SMS. Please enable it in Settings > Apps > [Your App] > Permissions.');
-            }
-          } catch (err) {
-            console.warn(err);
-          }
-        }
-      }
-      requestSMSPermission();
-    }, 2000); // Wait 2 seconds after mount
-    return () => clearTimeout(timer);
-  }, []);
+    requestSMSPermission();
+    loadData();
+  }, [requestSMSPermission, loadData]);
+
 
   if(loading && !refreshing) return <PageLoader/>
 
@@ -99,34 +77,29 @@ export default function Page() {
                   user_id: user.id,
                   amount: parsed.amount,
                   type: parsed.type,
-                  date: new Date(msg.date).toISOString().slice(0, 10), // Only YYYY-MM-DD
+                  date: formatDate(msg.date) // Only YYYY-MM-DD
                 };
               }
               return null;
             })
             .filter(Boolean);
+            
           if (parsedTransactions.length === 0) {
             setSyncing(false);
             Alert.alert('SMS Sync', 'No transactions found in your SMS inbox.');
             return;
           }
           let successCount = 0;
-          let duplicateCount = 0;
-          let errorCount = 0;
           for (const txn of parsedTransactions) {
             try {
               await axios.post(`${API_URL}/transactions/sms`, txn);
               successCount++;
             } catch (err: any) {
-              if (err.response && err.response.status === 409) {
-                duplicateCount++;
-              } else {
-                errorCount++;
-              }
+              console.log("Error creating transaction from SMS", err);
             }
           }
           setSyncing(false);
-          Alert.alert('SMS Sync', `Added: ${successCount}, Duplicates: ${duplicateCount}, Errors: ${errorCount}`);
+          Alert.alert('SMS Sync', `Added: ${successCount}`);
           loadData();
         }
       );
